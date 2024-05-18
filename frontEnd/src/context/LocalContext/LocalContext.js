@@ -1,13 +1,17 @@
-import React, { createContext, useReducer } from "react";
+import React, { createContext, useReducer, useEffect } from "react";
 import { API_URL } from "../../utils/urlUtil";
+import openSocket from "socket.io-client";
+import axios from "axios";
 
 import {
     DATA_FETCH_FAILED,
     DATA_FETCH_SUCCESS,
     DETAILS_FETCH_FAILED,
     DETAILS_FETCH_SUCCESS,
+    PRODUCT_CREATE,
+    PRODUCT_UPDATE,
+    PRODUCT_DELETE,
 } from "./LocalContextUtils";
-import axios from "axios";
 
 export const localContext = createContext();
 
@@ -49,6 +53,34 @@ const reducer = (state, action) => {
                 loading: false,
                 error: payload,
             };
+        case PRODUCT_CREATE:
+            return {
+                ...state,
+                dashboard: {
+                    ...state.dashboard,
+                    products: [...state.dashboard.products, payload],
+                },
+            };
+        case PRODUCT_UPDATE:
+            return {
+                ...state,
+                dashboard: {
+                    ...state.dashboard,
+                    products: state.dashboard.products.map(product =>
+                        product._id === payload._id ? payload : product
+                    ),
+                },
+            };
+        case PRODUCT_DELETE:
+            return {
+                ...state,
+                dashboard: {
+                    ...state.dashboard,
+                    products: state.dashboard.products.filter(
+                        product => product._id !== payload
+                    ),
+                },
+            };
         default:
             return state;
     }
@@ -71,7 +103,6 @@ const LocalContext = ({ children }) => {
                     payload: res?.data,
                 });
             }
-            console.log(res);
         } catch (error) {
             dispatch({
                 type: DATA_FETCH_FAILED,
@@ -79,6 +110,7 @@ const LocalContext = ({ children }) => {
             });
         }
     };
+
     const dashboardDataDetails = async (id) => {
         const config = {
             headers: {
@@ -93,7 +125,6 @@ const LocalContext = ({ children }) => {
                     payload: res?.data?.product,
                 });
             }
-            console.log(res);
         } catch (error) {
             dispatch({
                 type: DETAILS_FETCH_FAILED,
@@ -101,6 +132,39 @@ const LocalContext = ({ children }) => {
             });
         }
     };
+
+    useEffect(() => {
+        const socket = openSocket(API_URL, {
+            withCredentials: true,
+        });
+
+        socket.on("connect", () => {
+            console.log("Connected to WebSocket server");
+        });
+
+        socket.on("post", (data) => {
+            if (data.action === "create") {
+                dispatch({
+                    type: PRODUCT_CREATE,
+                    payload: data.post,
+                });
+            } else if (data.action === "edit") {
+                dispatch({
+                    type: PRODUCT_UPDATE,
+                    payload: data.post,
+                });
+            } else if (data.action === "delete") {
+                dispatch({
+                    type: PRODUCT_DELETE,
+                    payload: data.postId,
+                });
+            }
+        });
+
+        return () => {
+            socket.disconnect();
+        };
+    }, []);
 
     return (
         <localContext.Provider

@@ -7,6 +7,7 @@ import { useParams } from "react-router-dom";
 const EditProduct = () => {
     const { editProductValues, editProductSave, editProduct } =
         useContext(productContext);
+
     const onSubmit = (values, actions) => {
         const formData = new FormData();
         formData.append("title", values.title);
@@ -20,6 +21,7 @@ const EditProduct = () => {
         formData.append("quantity", values.quantity);
         editProductSave(formData);
     };
+
     const { prodId } = useParams();
 
     const {
@@ -33,39 +35,35 @@ const EditProduct = () => {
         setValues,
     } = useFormik({
         initialValues: {
-            title: editProduct?.title || "",
+            title: "",
             previewImage: null,
             image: [],
-            price: editProduct?.price || "",
-            description: editProduct?.description || "",
-            quantity: editProduct?.quantity || "",
+            price: "",
+            description: "",
+            quantity: "",
         },
         validationSchema: productValidation,
         onSubmit,
     });
-    useEffect(() => {
-        editProductValues(prodId);
-    }, []);
-    editProduct ? setValues({
-        ...values,
-        title: editProduct?.title || "",
-        price: editProduct?.price || "",
-        description: editProduct?.description || "",
-        quantity: editProduct?.quantity || "",
-    }): 
 
-    console.log(editProduct);
-    // useEffect(() => {
-    //     editProductValues(prodId).then((value) => {
-    //         setValues({
-    //             ...values,
-    //             title: value?.title,
-    //             price: value?.price,
-    //             description: value?.description,
-    //             quantity: value?.quantity,
-    //         });
-    //     });
-    // }, []);
+    useEffect(() => {
+        const fetchData = async () => {
+            await editProductValues(prodId);
+        };
+        fetchData();
+    }, [editProductValues, prodId]);
+
+    useEffect(() => {
+        if (editProduct) {
+            setValues({
+                title: editProduct.title || "",
+                price: editProduct.price || "",
+                description: editProduct.description || "",
+                quantity: editProduct.quantity || "",
+            });
+        }
+    }, [editProduct, setValues]);
+
     const inputClassNameTitle = `bg-transparent p-2 placeholder:text-slate-700 border-2 rounded-md resize-none w-[16rem] ${
         errors.title && touched.title && "border-red-500 "
     }`;

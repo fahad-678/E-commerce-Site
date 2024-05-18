@@ -1,4 +1,6 @@
 const express = require("express");
+const http = require("http");
+const socketIo = require("./utils/socketIO");
 require("dotenv").config();
 
 const shopRoutes = require("./routes/shop");
@@ -40,6 +42,21 @@ mongoose
         `mongodb+srv://${process.env.MONGODB_USERNAME}:${process.env.MONGODB_PASSWORD}@cluster0.5z60ejk.mongodb.net/${process.env.MONGODB_DATABASE_NAME}`
     )
     .then(() => {
-        shop.listen(process.env.PORT);
-        console.log("Connected");
+        const server = http.createServer(shop);
+        const io = socketIo.init(server);
+
+        io.on("connection", (socket) => {
+            console.log("Client Connected");
+
+            socket.on("disconnect", () => {
+                console.log("Client Disconnected");
+            });
+        });
+
+        server.listen(process.env.PORT, () => {
+            console.log(`Server running on port ${process.env.PORT}`);
+        });
+    })
+    .catch((err) => {
+        console.log(err);
     });

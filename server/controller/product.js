@@ -2,6 +2,7 @@ const Product = require("../models/product");
 const User = require("../models/user");
 const imageHandler = require("../utils/imagePathHandler");
 const createError = require("http-errors");
+const socketIO = require("../utils/socketIO");
 
 const { validationResult } = require("express-validator");
 
@@ -80,6 +81,11 @@ exports.addProduct = async (req, res, next) => {
 
     const updatedUser = await user.save();
 
+    socketIO.getIo().emit("post", {
+        action: "create",
+        post: newProduct,
+    });
+
     res.status(200).json({ newProduct, updatedUser, status: "success" });
 };
 
@@ -89,11 +95,12 @@ exports.getEditProduct = async (req, res, next) => {
     const prodId = req.params.prodId;
     const product = await Product.findById(prodId);
     const user = await User.findById(req.userId);
-    const check = user.products.find(a =>{
+    const check = user.products.find((a) => {
         return a.toString() === prodId.toString();
     });
 
-    if (!product && !check) return next(createError.Unauthorized("Product Not Found"));
+    if (!product && !check)
+        return next(createError.Unauthorized("Product Not Found"));
 
     res.status(200).json({ product, status: "success" });
 };
@@ -126,6 +133,12 @@ exports.editProduct = async (req, res, next) => {
     product.quantity = quantity;
 
     const newProduct = await product.save();
+
+    socketIO.getIo().emit("post", {
+        action: "edit",
+        post: newProduct,
+    });
+
     res.status(200).json(newProduct);
 };
 
@@ -133,6 +146,16 @@ exports.editProduct = async (req, res, next) => {
 
 exports.deleteProduct = async (req, res, next) => {
     const prodId = req.params.prodId;
+    const userProduct = await User.findById(req.userId);
+    if (!userProduct) {
+        return createError.Forbidden();
+    }
+    userProduct.products.map((a) => {
+        if (a.toString() == prodId) {
+            userProduct.products.splice(userProduct.products.indexOf(a), 1);
+        }
+    });
+    
     const product = await Product.findById(prodId);
     if (!product) {
         return createError.NotFound("Product Not Found");
@@ -140,12 +163,13 @@ exports.deleteProduct = async (req, res, next) => {
     await imageHandler.unlinkImage(product.imgPath);
     await imageHandler.unlinkImage(product.previewImage);
     await Product.findByIdAndRemove(prodId);
-    const userProduct = await User.findById(req.userId);
-    userProduct.products.map((a) => {
-        if (a.toString() == prodId) {
-            userProduct.products.splice(userProduct.products.indexOf(a), 1);
-        }
-    });
+    
     const user = await userProduct.save();
+
+    socketIO.getIo().emit("post", {
+        action: "delete",
+        postId: prodId,
+    });
+
     res.status(200).json({ deleted: true, user: user });
 };
